@@ -17,8 +17,6 @@ const Canvas: React.FC = () => {
     const context = canvas?.getContext("2d");
     if (!context) return;
 
-    context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-
     const handleMouseDown = (e: MouseEvent) => {
       if (!socket.current) return;
 
@@ -30,12 +28,20 @@ const Canvas: React.FC = () => {
           e.clientY - canvas.getBoundingClientRect().top
         );
 
+        if (tool === "pen") {
+          context.globalCompositeOperation = "source-over"; // reset to default mode for pen
+          context.strokeStyle = color;
+          context.lineWidth = brushSize;
+        } else if (tool === "eraser") {
+          context.globalCompositeOperation = "destination-out"; // use "destination-out" mode for erasing
+          context.lineWidth = brushSize * 2;
+        }
         const data = {
           type: "start",
           x: e.clientX - canvas.getBoundingClientRect().left,
           y: e.clientY - canvas.getBoundingClientRect().top,
-          color,
-          size: brushSize,
+          color: tool === "pen" ? color : "white",
+          size: tool === "pen" ? brushSize : brushSize * 2,
         };
         socket.current.emit("drawing", data);
       }
