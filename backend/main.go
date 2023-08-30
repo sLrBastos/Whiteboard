@@ -1,43 +1,46 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/gorilla/websocket"
 )
 
-var (
-	upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
-)
-
-func main() {
-	r := chi.NewRouter()
-
-	// Serve the React frontend
-	fs := http.FileServer(http.Dir("static"))
-	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		fs.ServeHTTP(w, r)
-	})
-
-	r.Get("/ws", handleWebSocket)
-
-	http.ListenAndServe(":8000", r)
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		fmt.Println("Error upgrading connection:", err)
 		return
 	}
 	defer conn.Close()
 
-	for {
-		// Read drawing action from the client
+	fmt.Println("Client connected")
 
-		// Broadcast the drawing action to all clients
+	for {
+		messageType, p, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println("Error reading message:", err)
+			return
+		}
+
+		err = conn.WriteMessage(messageType, p)
+		if err != nil {
+			fmt.Println("Error writing message:", err)
+			return
+		}
 	}
+}
+
+func main() {
+	http.HandleFunc("/ws", handleWebSocket)
+
+	port := ":8000"
+	fmt.Printf("WebSocket server is listening on port %s\n", port)
+	http.ListenAndServe(port, nil)
 }
