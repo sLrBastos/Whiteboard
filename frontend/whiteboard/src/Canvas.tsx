@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
 const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -8,7 +8,7 @@ const Canvas: React.FC = () => {
   const [brushSize, setBrushSize] = useState<number>(2);
   const [tool, setTool] = useState<string>("pen");
 
-  const socket = useRef<SocketIOClient.Socket | null>(null);
+  const socket = useRef<Socket | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
