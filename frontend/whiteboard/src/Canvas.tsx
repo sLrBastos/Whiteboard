@@ -1,76 +1,143 @@
 import React, { useState, useEffect, useRef } from "react";
-import io from "socket.io-client";
+import { io } from "socket.io-client";
 
 const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [socket, setSocket] = useState<SocketIOClient.Socket | null>(null);
-  const [drawing, setDrawing] = useState<any[]>([]);
+  let isDrawing = false;
+  const [color, setColor] = useState<string>("black");
+  const [brushSize, setBrushSize] = useState<number>(2);
+  const [tool, setTool] = useState<string>("pen");
 
-  useEffect(() => {
-    const newSocket = io("http://localhost:8000");
-    setSocket(newSocket);
-
-    return () => newSocket.close();
-  }, []);
-
-  useEffect(() => {
-    if (socket) {
-      socket.on("draw", (data: any) => {
-        setDrawing((prevDrawing) => [...prevDrawing, data]);
-      });
-    }
-  }, [socket]);
+  const socket = useRef<SocketIOClient.Socket | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+
     const context = canvas?.getContext("2d");
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
+    if (!context) return;
 
-    if (context) {
-      context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+    context.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
 
-      canvas.addEventListener("mousedown", (e) => {
-        isDrawing = true;
-        lastX = e.clientX - canvas.getBoundingClientRect().left;
-        lastY = e.clientY - canvas.getBoundingClientRect().top;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!socket.current) return;
+
+      isDrawing = true;
+      if (tool === "pen" || tool === "eraser") {
         context.beginPath();
-        context.moveTo(lastX, lastY);
-      });
+        context.moveTo(
+          e.clientX - canvas.getBoundingClientRect().left,
+          e.clientY - canvas.getBoundingClientRect().top
+        );
 
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isDrawing) return;
+        const data = {
+          type: "start",
+          x: e.clientX - canvas.getBoundingClientRect().left,
+          y: e.clientY - canvas.getBoundingClientRect().top,
+          color,
+          size: brushSize,
+        };
+        socket.current.emit("drawing", data);
+      }
+    };
 
-        const x = e.clientX - canvas.getBoundingClientRect().left;
-        const y = e.clientY - canvas.getBoundingClientRect().top;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!socket.current) return;
 
+      if (!isDrawing) return;
+
+      const x = e.clientX - canvas.getBoundingClientRect().left;
+      const y = e.clientY - canvas.getBoundingClientRect().top;
+      if (tool === "pen" || tool === "eraser") {
         context.lineTo(x, y);
+        context.lineWidth = brushSize;
+        context.strokeStyle = tool === "eraser" ? "white" : color;
         context.stroke();
-        lastX = x;
-        lastY = y;
-      });
 
-      canvas.addEventListener("mouseup", () => {
-        if (isDrawing) {
-          context.closePath();
-          isDrawing = false;
-        }
-      });
+        const data = {
+          type: "draw",
+          x,
+          y,
+        };
+        socket.current.emit("drawing", data);
+      }
+    };
 
-      canvas.addEventListener("mouseout", () => {
-        if (isDrawing) {
-          context.closePath();
-          isDrawing = false;
-        }
-      });
-    }
+    const handleMouseUp = () => {
+      if (!socket.current) return;
+
+      if ((tool === "pen" || tool === "eraser") && isDrawing) {
+        context.closePath();
+        isDrawing = false;
+
+        socket.current.emit("end");
+      }
+    };
+
+    const handleMouseOut = () => {
+      if (!socket.current) return;
+
+      if ((tool === "pen" || tool === "eraser") && isDrawing) {
+        context.closePath();
+        isDrawing = false;
+
+        socket.current.emit("end");
+      }
+    };
+
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mouseout", handleMouseOut);
+
+    socket.current = io("http://localhost:8000");
 
     return () => {
-      // Remove event listeners if needed
-    };
-  }, []);
+      if (socket.current) {
+        socket.current.disconnect();
+        socket.current = null;
+      }
 
-  return <canvas ref={canvasRef} width={800} height={600} />;
+      // Remove event listeners if needed
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseup", handleMouseUp);
+      canvas.addEventListener("mouseout", handleMouseOut);
+    };
+  }, [color, brushSize, tool]);
+
+  const handleColorChange = (newColor: string) => {
+    setColor(newColor);
+  };
+
+  const handleBrushSizeChange = (newSize: number) => {
+    setBrushSize(newSize);
+  };
+
+  const handleToolChange = (newTool: string) => {
+    setTool(newTool);
+  };
+
+  return (
+    <div>
+      <div>
+        <button onClick={() => handleToolChange("pen")}>Pen</button>
+        <button onClick={() => handleToolChange("eraser")}>Eraser</button>
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => handleColorChange(e.target.value)}
+        />
+        <input
+          type="range"
+          min="1"
+          max="10"
+          value={brushSize}
+          onChange={(e) => handleBrushSizeChange(Number(e.target.value))}
+        />
+      </div>
+      <canvas ref={canvasRef} width={800} height={600} />;
+    </div>
+  );
 };
 export default Canvas;
