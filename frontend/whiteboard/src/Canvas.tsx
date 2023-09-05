@@ -24,8 +24,13 @@ const Canvas: React.FC = () => {
     const context = canvas.getContext("2d");
     if (!context) return;
 
+    console.log("Canvas Width:", canvas.width);
+    console.log("Canvas Height:", canvas.height);
+
     const handleMouseDown = (e: MouseEvent) => {
       if (!socket.current) return;
+
+      console.log("Mouse Down - X:", e.clientX, "Y:", e.clientY);
 
       isDrawing = true;
       if (tool === "pen" || tool === "eraser") {
@@ -123,11 +128,15 @@ const Canvas: React.FC = () => {
   useEffect(() => {
     if (!socket.current) return;
 
+    console.log("Registering drawing event handler...");
+
     socket.current.on("drawing", (data: DrawingData) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const context = canvas.getContext("2d");
       if (!context) return;
+
+      console.log("Received Drawing Data:", data);
 
       if (data.type === "start") {
         context.beginPath();
@@ -139,7 +148,7 @@ const Canvas: React.FC = () => {
         context.stroke();
       }
     });
-  });
+  }, []);
 
   const handleColorChange = (newColor: string) => {
     if (!socket.current) return;
