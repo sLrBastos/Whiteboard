@@ -10,19 +10,13 @@ import (
 
 func main() {
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:5174"}, // Add your frontend URLs here
-		AllowCredentials: true,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders:   []string{"Content-Type"},
-	})
-
 	server := socketio.NewServer(nil)
 
 	//Store connected clients
 	clients := make(map[string]socketio.Conn)
 
 	server.OnConnect("/", func(s socketio.Conn) error {
+		fmt.Println("real beans", clients)
 		fmt.Println("Client connected:", s.ID())
 		clients[s.ID()] = s
 		return nil
@@ -45,11 +39,24 @@ func main() {
 
 	})
 
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:5174"}, // Add your frontend URLs here
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type"},
+	})
+
 	http.Handle("/socket.io/", c.Handler(server))
-	http.Handle("/", http.FileServer(http.Dir("static")))
+
+	if err := server.Serve(); err != nil {
+		fmt.Println("Websocket server error:", err)
+		return
+	}
+	defer server.Close()
 
 	fmt.Println("Server is running on :8000")
 	if err := http.ListenAndServe(":8000", nil); err != nil {
 		fmt.Println("Server error:", err)
 	}
+
 }
