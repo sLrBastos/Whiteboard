@@ -48,11 +48,14 @@ func main() {
 
 	http.Handle("/socket.io/", c.Handler(server))
 
-	if err := server.Serve(); err != nil {
-		fmt.Println("Websocket server error:", err)
-		return
-	}
-	defer server.Close()
+	go func() {
+		if err := server.Serve(); err != nil {
+			fmt.Println("Websocket server error:", err)
+			return
+
+		}
+		defer server.Close()
+	}()
 
 	fmt.Println("Server is running on :8000")
 	if err := http.ListenAndServe(":8000", nil); err != nil {
